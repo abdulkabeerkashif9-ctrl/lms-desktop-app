@@ -242,7 +242,7 @@ body {
     justify-content: center;
     overflow: visible;
 }
-.login-icon {
+/* .login-icon {
     width: 64px; height: 64px;
     background: linear-gradient(135deg, var(--accent), var(--success));
     border-radius: var(--r-lg);
@@ -252,7 +252,7 @@ body {
     font-size: 30px;
     box-shadow: 0 12px 36px var(--accent-glow);
     animation: icon-bob 3.5s ease-in-out infinite;
-}
+} */
 /* Gentle bob that stays well within the wrapper */
 @keyframes icon-bob {
     0%, 100% { transform: translateY(0); }

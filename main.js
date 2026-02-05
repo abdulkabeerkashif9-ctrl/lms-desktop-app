@@ -5,7 +5,7 @@ const fs = require('fs');
 let mainWindow;
 const credentialsPath = path.join(app.getPath('userData'), 'credentials.json');
 
-app.setName('GenEx Student Video Player');
+app.setName('LMS by HM Technologies');
 const APP_ID = 'com.genex.studentvideoplayer';
 const REFERER = `https://${APP_ID}`;
 const isProduction = process.env.NODE_ENV === 'production' || !process.defaultApp;

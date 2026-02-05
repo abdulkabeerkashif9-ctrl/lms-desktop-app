@@ -92,28 +92,41 @@ function formatExpiryDate(expiryDate) {
 }
 
 // Mark private key as used in ERPNext
-async function markKeyAsUsed(studentName) {
+async function markKeyAsUsed(studentName, keyRow) {
     try {
-        const response = await fetch(
-            `${ERP_URL}/api/resource/Student/${studentName}`,
-            {
-                method: 'PUT',
-                headers: {
-                    'Authorization': getAuthHeader(),
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({
-                    custom_key_used: 1
-                })
-            }
-        );
+        console.log('Marking key as used:', {
+            studentName: studentName,
+            keyRow: keyRow
+        });
         
-        if (!response.ok) {
-            console.error('Failed to mark key as used');
+        // Child table DocType name is "custom_key_details"
+        const url = `${ERP_URL}/api/resource/Key Details/${encodeURIComponent(keyRow)}`;
+        
+        console.log('API URL:', url);
+        
+        const response = await fetch(url, {
+            method: 'PUT',
+            headers: {
+                'Authorization': getAuthHeader(),
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                is_key_used: 1
+            })
+        });
+        
+        console.log('Response status:', response.status);
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Key marked as used successfully:', result);
+        } else {
+            const errorText = await response.text();
+            console.error('❌ Failed to mark key as used:', response.status, errorText);
         }
     } catch (error) {
-        console.error('Error marking key as used:', error);
+        console.error('❌ Error marking key as used:', error);
     }
 }
 
@@ -130,8 +143,9 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     loginBtn.textContent = '🔄 Verifying credentials...';
 
     try {
+        // Step 1: Get basic student info
         const filters = JSON.stringify([["student_email_id", "=", email]]);
-        const fields = JSON.stringify(["name", "student_email_id", "custom_private_key", "custom_password", "first_name", "last_name", "custom_key_used", "enabled"]);
+        const fields = JSON.stringify(["name", "student_email_id", "custom_password", "first_name", "last_name", "enabled"]);
         
         const url = `${ERP_URL}/api/resource/Student?fields=${encodeURIComponent(fields)}&filters=${encodeURIComponent(filters)}`;
         
@@ -171,37 +185,76 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             throw new Error('Invalid password');
         }
         
-        if (!student.custom_private_key) {
-            throw new Error('No private key assigned. Contact administrator.');
+        // Step 2: Fetch full student document with custom_keys child table
+        const studentUrl = `${ERP_URL}/api/resource/Student/${encodeURIComponent(student.name)}`;
+        
+        const studentResponse = await fetch(studentUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': getAuthHeader(),
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!studentResponse.ok) {
+            throw new Error('Failed to load student data');
+        }
+
+        const studentData = await studentResponse.json();
+        const fullStudent = studentData.data;
+        
+        // Step 3: Check custom_keys child table
+        const customKeys = fullStudent.custom_key_details || [];
+        
+        if (customKeys.length === 0) {
+            throw new Error('No private keys assigned. Contact administrator.');
         }
         
-        const storedKey = String(student.custom_private_key).trim();
+        // Find matching key that is not used and not deactivated
         const enteredKey = String(privateKey).trim();
+        let matchedKey = null;
         
-        if (storedKey !== enteredKey) {
+        for (const keyRow of customKeys) {
+            const storedKey = String(keyRow.private_key || '').trim();
+            
+            if (storedKey === enteredKey) {
+                // Found matching key
+                if (keyRow.deactivated === 1) {
+                    throw new Error('This private key has been deactivated. Contact administrator for a new key.');
+                }
+                
+                if (keyRow.is_key_used === 1) {
+                    throw new Error('This private key has already been used. Contact administrator for a new key.');
+                }
+                
+                // Valid key found!
+                matchedKey = keyRow;
+                break;
+            }
+        }
+        
+        if (!matchedKey) {
             throw new Error('Invalid private key');
         }
         
-        if (student.custom_key_used === 1) {
-            throw new Error('This private key has already been used. Contact administrator for a new key.');
-        }
+        // Step 4: Mark this specific key as used
+        await markKeyAsUsed(student.name, matchedKey.name);
         
-        await markKeyAsUsed(student.name);
-        
-        currentStudent = student;
+        currentStudent = fullStudent;
         isKeyUsed = true;
         
         await ipcRenderer.invoke('save-credentials', {
             email: email,
             password: password,
             privateKey: privateKey,
-            studentData: JSON.stringify(student)
+            studentData: JSON.stringify(fullStudent)
         });
         
         document.getElementById('studentName').textContent = 
-            `${student.first_name} ${student.last_name || ''}`;
+            `${fullStudent.first_name} ${fullStudent.last_name || ''}`;
         document.getElementById('studentInitials').textContent = 
-            getInitials(student.first_name, student.last_name);
+            getInitials(fullStudent.first_name, fullStudent.last_name);
         
         document.querySelector('.logout-btn').style.display = 'none';
         
@@ -251,8 +304,9 @@ window.addEventListener('DOMContentLoaded', async () => {
         try {
             const studentData = JSON.parse(savedCreds.studentData);
             
+            // Verify student is still enabled
             const filters = JSON.stringify([["student_email_id", "=", savedCreds.email]]);
-            const fields = JSON.stringify(["name", "student_email_id", "custom_private_key", "custom_password", "first_name", "last_name", "custom_key_used", "enabled"]);
+            const fields = JSON.stringify(["name", "student_email_id", "first_name", "last_name", "enabled"]);
             
             const url = `${ERP_URL}/api/resource/Student?fields=${encodeURIComponent(fields)}&filters=${encodeURIComponent(filters)}`;
             
@@ -286,7 +340,52 @@ window.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
             
-            currentStudent = student;
+            // Fetch full student document with custom_keys
+            const studentUrl = `${ERP_URL}/api/resource/Student/${encodeURIComponent(student.name)}`;
+            
+            const studentResponse = await fetch(studentUrl, {
+                method: 'GET',
+                headers: {
+                    'Authorization': getAuthHeader(),
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!studentResponse.ok) {
+                throw new Error('Failed to load student data');
+            }
+
+            const fullStudentData = await studentResponse.json();
+            const fullStudent = fullStudentData.data;
+            
+            // Verify the saved private key is still valid
+            const customKeys = fullStudent.custom_key_details || [];
+            const savedKey = savedCreds.privateKey;
+            let keyStillValid = false;
+            
+            for (const keyRow of customKeys) {
+                if (String(keyRow.private_key || '').trim() === savedKey) {
+                    // Check if key is deactivated
+                    if (keyRow.deactivated === 1) {
+                        await ipcRenderer.invoke('clear-credentials');
+                        showError('Your private key has been deactivated. Please login with a new key.');
+                        console.log('Key deactivated - credentials cleared');
+                        return;
+                    }
+                    keyStillValid = true;
+                    break;
+                }
+            }
+            
+            if (!keyStillValid) {
+                await ipcRenderer.invoke('clear-credentials');
+                showError('Your private key is no longer valid. Please login again.');
+                console.log('Key no longer valid - credentials cleared');
+                return;
+            }
+            
+            currentStudent = fullStudent;
             
             document.getElementById('studentName').textContent = 
                 `${currentStudent.first_name} ${currentStudent.last_name || ''}`;
@@ -1263,3 +1362,177 @@ ipcRenderer.on('recording-detected', () => {
         `);
     }
 });
+
+// ═══════════════════════════════════════════════════════════════════
+//  AUTO-UPDATE HANDLING
+// ═══════════════════════════════════════════════════════════════════
+
+let updateNotification = null;
+let downloadProgress = null;
+
+// Create update notification element
+function createUpdateNotification(message, type = 'info') {
+    // Remove existing notification
+    if (updateNotification && updateNotification.parentNode) {
+        updateNotification.parentNode.removeChild(updateNotification);
+    }
+
+    updateNotification = document.createElement('div');
+    updateNotification.className = `update-notification update-${type}`;
+    updateNotification.innerHTML = `
+        <div class="update-content">
+            <div class="update-icon">${type === 'success' ? '✓' : type === 'error' ? '✕' : '🔄'}</div>
+            <div class="update-message">${message}</div>
+        </div>
+    `;
+    document.body.appendChild(updateNotification);
+
+    // Auto-hide after 5 seconds for info messages
+    if (type === 'info') {
+        setTimeout(() => {
+            if (updateNotification && updateNotification.parentNode) {
+                updateNotification.classList.add('hiding');
+                setTimeout(() => {
+                    if (updateNotification && updateNotification.parentNode) {
+                        updateNotification.parentNode.removeChild(updateNotification);
+                    }
+                }, 300);
+            }
+        }, 5000);
+    }
+}
+
+// Update available
+ipcRenderer.on('update-available', (event, info) => {
+    console.log('Update available:', info.version);
+    
+    const notification = document.createElement('div');
+    notification.className = 'update-notification update-available';
+    notification.innerHTML = `
+        <div class="update-content">
+            <div class="update-icon">📦</div>
+            <div class="update-message">
+                <strong>Update Available!</strong>
+                <p>Version ${info.version} is ready to download</p>
+            </div>
+            <div class="update-actions">
+                <button class="update-btn download-btn" onclick="downloadUpdate()">Download</button>
+                <button class="update-btn dismiss-btn" onclick="dismissUpdate()">Later</button>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing
+    if (updateNotification && updateNotification.parentNode) {
+        updateNotification.parentNode.removeChild(updateNotification);
+    }
+    
+    updateNotification = notification;
+    document.body.appendChild(updateNotification);
+});
+
+// No update available
+ipcRenderer.on('update-not-available', () => {
+    console.log('App is up to date');
+});
+
+// Download progress
+ipcRenderer.on('download-progress', (event, progress) => {
+    console.log('Download progress:', progress.percent + '%');
+    
+    if (!downloadProgress) {
+        const notification = document.createElement('div');
+        notification.className = 'update-notification update-downloading';
+        notification.innerHTML = `
+            <div class="update-content">
+                <div class="update-icon">⬇️</div>
+                <div class="update-message">
+                    <strong>Downloading Update...</strong>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="updateProgressFill"></div>
+                    </div>
+                    <div class="progress-text" id="updateProgressText">0%</div>
+                </div>
+            </div>
+        `;
+        
+        if (updateNotification && updateNotification.parentNode) {
+            updateNotification.parentNode.removeChild(updateNotification);
+        }
+        
+        downloadProgress = notification;
+        updateNotification = notification;
+        document.body.appendChild(notification);
+    }
+    
+    const fill = document.getElementById('updateProgressFill');
+    const text = document.getElementById('updateProgressText');
+    if (fill) fill.style.width = progress.percent + '%';
+    if (text) text.textContent = progress.percent + '%';
+});
+
+// Update downloaded
+ipcRenderer.on('update-downloaded', (event, info) => {
+    console.log('Update downloaded:', info.version);
+    
+    const notification = document.createElement('div');
+    notification.className = 'update-notification update-ready';
+    notification.innerHTML = `
+        <div class="update-content">
+            <div class="update-icon">✓</div>
+            <div class="update-message">
+                <strong>Update Ready!</strong>
+                <p>Version ${info.version} has been downloaded</p>
+            </div>
+            <div class="update-actions">
+                <button class="update-btn install-btn" onclick="installUpdate()">Restart & Install</button>
+                <button class="update-btn dismiss-btn" onclick="dismissUpdate()">Install on Exit</button>
+            </div>
+        </div>
+    `;
+    
+    if (updateNotification && updateNotification.parentNode) {
+        updateNotification.parentNode.removeChild(updateNotification);
+    }
+    
+    downloadProgress = null;
+    updateNotification = notification;
+    document.body.appendChild(updateNotification);
+});
+
+// Update error
+ipcRenderer.on('update-error', (event, error) => {
+    console.error('Update error:', error.message);
+    createUpdateNotification('Failed to check for updates: ' + error.message, 'error');
+});
+
+// Update action functions
+function downloadUpdate() {
+    ipcRenderer.send('download-update');
+    if (updateNotification && updateNotification.parentNode) {
+        updateNotification.parentNode.removeChild(updateNotification);
+    }
+}
+
+function installUpdate() {
+    ipcRenderer.send('install-update');
+}
+
+function dismissUpdate() {
+    if (updateNotification && updateNotification.parentNode) {
+        updateNotification.classList.add('hiding');
+        setTimeout(() => {
+            if (updateNotification && updateNotification.parentNode) {
+                updateNotification.parentNode.removeChild(updateNotification);
+            }
+            updateNotification = null;
+            downloadProgress = null;
+        }, 300);
+    }
+}
+
+// Manual update check (optional - you can add a button for this)
+function checkForUpdates() {
+    ipcRenderer.send('check-for-updates');
+    createUpdateNotification('Checking for updates...', 'info');
+}

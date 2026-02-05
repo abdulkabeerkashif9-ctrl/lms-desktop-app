@@ -1,0 +1,21 @@
+directories:
+  output: dist
+  buildResources: build
+appId: com.genex.videoplayer
+productName: LMS - Beta
+win:
+  target:
+    - nsis
+  icon: assets/icon.png
+mac:
+  target:
+    - dmg
+  icon: assets/icon.png
+  category: public.app-category.education
+linux:
+  target:
+    - AppImage
+  icon: assets/icon.png
+  category: Education
+files: []
+electronVersion: 28.3.3
