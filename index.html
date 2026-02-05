@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LMS - Beta</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,400&family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Login Screen -->
+        <div id="loginScreen">
+            <div class="login-split-container">
+                <!-- Left Side - Logo -->
+                <div class="login-logo-side">
+                    <!-- Ambient orbs -->
+                    <div class="orb orb-1"></div>
+                    <div class="orb orb-2"></div>
+                    <div class="orb orb-3"></div>
+
+                    <div class="logo-wrapper">
+                        <img src="assets/logo.png" alt="Company Logo" class="company-logo" id="companyLogo">
+                        <div class="logo-fallback" id="logoFallback">
+                            <div class="fallback-icon">📈</div>
+                            <h1>LMS</h1>
+                            <p>LMS by HM</p>
+                        </div>
+                    </div>
+
+                    <!-- Bottom tagline -->
+                    <div class="login-left-footer">
+                        <span class="footer-dot"></span>
+                        <span>Secure · Personal · Professional</span>
+                    </div>
+                </div>
+
+                <!-- Right Side - Login Form -->
+                <div class="login-form-side">
+                    <div class="login-container">
+                        <!-- Icon row -->
+                        <div class="login-icon-wrap">
+                            <div class="login-icon">🔐</div>
+                        </div>
+
+                        <h2>Welcome Back</h2>
+                        <p>Sign in to access your learning dashboard</p>
+
+                        <div class="error-message" id="loginError"></div>
+
+                        <form id="loginForm">
+                            <div class="form-group">
+                                <label>Email Address</label>
+                                <div class="input-wrap">
+                                    <span class="input-icon">✉</span>
+                                    <input type="email" id="emailInput" placeholder="your.email@example.com" required autocomplete="email">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Password</label>
+                                <div class="input-wrap">
+                                    <span class="input-icon">●●●</span>
+                                    <input type="password" id="passwordInput" placeholder="Enter your password" required autocomplete="current-password">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Private Key <span class="label-badge">One-time</span></label>
+                                <div class="input-wrap">
+                                    <span class="input-icon">⬡</span>
+                                    <input type="text" id="privateKeyInput" placeholder="Enter your one-time private key" required autocomplete="off">
+                                </div>
+                                <p class="input-hint">⚠ This key can only be used once. Keep it safe.</p>
+                            </div>
+
+                            <button type="submit" class="login-btn" id="loginBtn">
+                                <span class="btn-shine"></span>
+                                Verify &amp; Login
+                            </button>
+                        </form>
+
+                        <!-- Bottom note -->
+                        <p class="login-footer-note">Having trouble? Contact your administrator.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main App Screen -->
+        <div id="mainScreen" class="hidden">
+            <div class="header">
+                <h1>
+                    <div class="header-logo">
+                        <img src="assets/logo.png" alt="no logo found">
+                    </div>
+                    <span class="header-title-main">Trader Abdullah Masood</span>
+                    <span class="header-title-sub">LMS</span>
+                </h1>
+                <div class="user-info">
+                    <div class="user-badge">
+                        <div class="user-avatar" id="studentInitials">ST</div>
+                        <div class="user-text">
+                            <div class="user-name" id="studentName">Student</div>
+                            <div class="user-role">Premium Member</div>
+                        </div>
+                    </div>
+                    <button class="logout-btn" onclick="logout()">
+                        <span>🚪</span>
+                        Logout
+                    </button>
+                </div>
+            </div>
+
+            <!-- Course List -->
+            <div id="courseList" class="content">
+                <div class="loading" id="loadingCourses">
+                    <div class="spinner"></div>
+                    <p>Loading your courses...</p>
+                </div>
+                <div class="courses-grid" id="coursesGrid"></div>
+                <div class="no-courses hidden" id="noCourses">
+                    <div class="no-courses-icon">📭</div>
+                    <h3>No Courses Available</h3>
+                    <p>There are no courses available at the moment.</p>
+                </div>
+            </div>
+
+            <!-- Video List Screen -->
+            <div id="videoListScreen" class="content hidden">
+                <div class="video-list-header">
+                    <button class="back-btn" onclick="backToCourses()">
+                        <span class="back-arrow">←</span>
+                        Back
+                    </button>
+                    <div class="course-title-display">
+                        <span class="course-title-icon" id="courseTitleIcon">📚</span>
+                        <div class="course-title-text">
+                            <h2 id="courseTitle">Course Name</h2>
+                            <span class="course-subtitle">Browse and play course videos below</span>
+                        </div>
+                    </div>
+                    <button id="liveClassBtn" class="live-class-btn hidden" onclick="showLiveClassModal()">
+                        <span class="live-indicator">🔴</span>
+                        <span>Live Class</span>
+                    </button>
+                </div>
+
+                <div class="loading" id="loadingVideos">
+                    <div class="spinner"></div>
+                    <p>Loading course videos...</p>
+                </div>
+
+                <div class="videos-list" id="videosList"></div>
+
+                <div class="no-courses hidden" id="noVideos">
+                    <div class="no-courses-icon">🎥</div>
+                    <h3>No Videos Available</h3>
+                    <p>This course doesn't have any videos yet.</p>
+                </div>
+            </div>
+
+            <!-- Video Loading Screen -->
+            <div id="videoLoadingScreen" class="hidden">
+                <div class="video-loading-content">
+                    <div class="spinner"></div>
+                    <h3>Preparing Video...</h3>
+                    <p>Setting up secure playback</p>
+                </div>
+            </div>
+
+            <!-- Video Player -->
+            <div id="videoPlayer" class="hidden">
+                <div class="video-player-layout">
+                    <!-- Left: Video Player -->
+                    <div class="video-player-main">
+                        <div id="videoContainer" class="video-container-wrapper">
+                           <webview id="videoFrame" class="video-player"></webview>
+                           <!-- Inert 3-dot button overlaid bottom-right -->
+                           <!-- <button id="tam-dots-btn" aria-label="More options" title="More options">
+                               <svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+                           </button> -->
+                        </div>
+                        <div class="video-info-section">
+                            <button class="back-btn-inline" onclick="backToVideos()">
+                                <span>←</span> Back to Course
+                            </button>
+                            <h3 id="currentVideoTitle" class="current-video-title">Video Title</h3>
+                            <div class="video-meta">
+                                <span id="videoProgress" class="video-progress-badge">Video 1 of 10</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right: Playlist -->
+                    <div class="video-playlist-sidebar">
+                        <div class="playlist-header">
+                            <h4>📚 Course Videos</h4>
+                            <p id="playlistCount">0 videos</p>
+                        </div>
+                        <div class="playlist-videos" id="playlistVideos">
+                            <!-- Playlist items will be inserted here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Class Modal -->
+    <div id="liveClassModal" class="modal hidden">
+        <div class="modal-overlay" onclick="closeLiveClassModal()"></div>
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeLiveClassModal()">×</button>
+            <div class="modal-header">
+                <span class="live-indicator-large">🔴</span>
+                <h3>Live Class Session</h3>
+            </div>
+            <div class="modal-body">
+                <p>Join the live class using the link below:</p>
+                <div class="live-class-link-container">
+                    <input type="text" id="liveClassLink" readonly onclick="this.select()">
+                    <button class="copy-btn" onclick="copyLiveClassLink()">
+                        <span id="copyBtnText">📋 Copy</span>
+                    </button>
+                </div>
+                <button class="join-btn" onclick="openLiveClassLink()">
+                    🚀 Open Live Class
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+{
+    "name": "student-video-player",
+    "version": "1.0.0",
+    "description": "LMS by HM Technologies",
+    "main": "main.js",
+    "scripts": {
+      "start": "electron .",
+      "build-win": "electron-builder --win",
+      "build-mac": "electron-builder --mac",
+      "build-linux": "electron-builder --linux",
+      "build-all": "electron-builder -mwl"
+    },
+    "keywords": [
+      "erpnext",
+      "video",
+      "player",
+      "education"
+    ],
+    "author": "HM Technologies",
+    "license": "MIT",
+    "devDependencies": {
+      "electron": "^28.0.0",
+      "electron-builder": "^24.9.1"
+    },
+    "build": {
+      "appId": "com.genex.videoplayer",
+      "productName": "LMS - Beta",
+      "directories": {
+        "output": "dist"
+      },
+      "win": {
+        "target": [
+          "nsis"
+        ],
+        "icon": "assets/icon.png"
+      },
+      "mac": {
+        "target": [
+          "dmg"
+        ],
+        "icon": "assets/icon.png",
+        "category": "public.app-category.education"
+      },
+      "linux": {
+        "target": [
+          "AppImage"
+        ],
+        "icon": "assets/icon.png",
+        "category": "Education"
+      }
+    }
+  }
